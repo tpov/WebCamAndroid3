@@ -22,7 +22,7 @@ class Yuv420ToBitmapConverter(val handler: Handler?, val context: Context) {
 
   fun enqueue(image: Image): LiveData<Bitmap> {
     val liveData = MutableLiveData<Bitmap>()
-    (handler ?: Handler(Looper.myLooper())).post {
+    (handler ?: Looper.myLooper()?.let { Handler(it) })?.post {
       val bitmap = execute(image)
       liveData.postValue(bitmap)
     }
@@ -30,7 +30,7 @@ class Yuv420ToBitmapConverter(val handler: Handler?, val context: Context) {
     return liveData
   }
 
-  fun execute(image: Image): Bitmap {
+  private fun execute(image: Image): Bitmap {
     val yuvBytes = toYuvBytes(image)
 
     val yuvType = Type.Builder(rs, Element.U8(rs)).setX(yuvBytes.size).create()

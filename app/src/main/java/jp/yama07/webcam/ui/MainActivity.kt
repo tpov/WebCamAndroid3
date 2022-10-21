@@ -1,19 +1,23 @@
 package jp.yama07.webcam.ui
 
 import android.Manifest
+import android.app.Service
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.ImageFormat
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraManager
 import android.media.ImageReader
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Size
 import android.view.Surface
 import android.view.TextureView
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
@@ -47,10 +51,14 @@ class MainActivity : AppCompatActivity() {
   private var imageSize: Size = Size(1440, 1080)
   private lateinit var converter: Yuv420ToBitmapConverter
 
+  @RequiresApi(Build.VERSION_CODES.O)
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_main)
-    startBackgroundThread()
+
+    var intent = Intent(this, Service::class.java)
+    //startBackgroundThread()
+    startForegroundService(intent)
 
     cameraComponent = CameraComponent(
       cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager,
@@ -64,7 +72,7 @@ class MainActivity : AppCompatActivity() {
 
     lifecycle.addObserver(cameraComponent)
     server =
-      MJpegHTTPD("0.0.0.0", 8080, this, cameraImage, 20, mjpegHttpdHandler).also { it.start() }
+      MJpegHTTPD("192.168.13.77", 8080, this, cameraImage, 20, mjpegHttpdHandler).also { it.start() }
   }
 
   override fun onDestroy() {
@@ -72,16 +80,6 @@ class MainActivity : AppCompatActivity() {
     converter.destroy()
     server.stop()
     lifecycle.removeObserver(cameraComponent)
-  }
-
-  override fun onResume() {
-    super.onResume()
-    startBackgroundThread()
-  }
-
-  override fun onPause() {
-    super.onPause()
-    stopBackgroundThread()
   }
 
   @NeedsPermission(Manifest.permission.CAMERA)
@@ -111,15 +109,15 @@ class MainActivity : AppCompatActivity() {
 
   private fun setupSurfaceTexture() {
     texture_view.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-      override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture?, width: Int, height: Int) {}
-      override fun onSurfaceTextureUpdated(surface: SurfaceTexture?) {}
-      override fun onSurfaceTextureAvailable(surface: SurfaceTexture?, width: Int, height: Int) {
+      override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {}
+      override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+      override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
         Timber.d("onSurfaceTextureAvailable: $width x $height")
         imageSize = Size(width, height)
         captureManager.observe(this@MainActivity, Observer {})
       }
 
-      override fun onSurfaceTextureDestroyed(surface: SurfaceTexture?): Boolean {
+      override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
         captureManager.removeObservers(this@MainActivity)
         return true
       }
@@ -157,13 +155,13 @@ class MainActivity : AppCompatActivity() {
 
   private fun startBackgroundThread() {
     backgroundThread = HandlerThread("ImageListener").also { it.start() }
-    backgroundHandler = Handler(backgroundThread?.looper)
+    backgroundHandler = backgroundThread?.looper?.let { Handler(it) }
 
     imgCnvThread = HandlerThread("imageConverter").also { it.start() }
-    imgCnvHandler = Handler(imgCnvThread?.looper)
+    imgCnvHandler = imgCnvThread?.looper?.let { Handler(it) }
 
     mjpegHttpdThread = HandlerThread("mjpegHttpd").also { it.start() }
-    mjpegHttpdHandler = Handler(mjpegHttpdThread?.looper)
+    mjpegHttpdHandler = mjpegHttpdThread?.looper?.let { Handler(it) }
   }
 
   private fun stopBackgroundThread() {

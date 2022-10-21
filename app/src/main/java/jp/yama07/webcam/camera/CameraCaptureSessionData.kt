@@ -27,8 +27,8 @@ data class CameraCaptureSessionData(
     cameraCaptureSession?.setRepeatingRequest(
       captureRequest, object : CameraCaptureSession.CaptureCallback() {
         override fun onCaptureStarted(
-          session: CameraCaptureSession?,
-          request: CaptureRequest?,
+          session: CameraCaptureSession,
+          request: CaptureRequest,
           timestamp: Long,
           frameNumber: Long
         ) {
@@ -42,9 +42,9 @@ data class CameraCaptureSessionData(
         }
 
         override fun onCaptureProgressed(
-          session: CameraCaptureSession?,
-          request: CaptureRequest?,
-          partialResult: CaptureResult?
+          session: CameraCaptureSession,
+          request: CaptureRequest,
+          partialResult: CaptureResult
         ) {
           super.onCaptureProgressed(session, request, partialResult)
           cameraCaptureLiveData.postValue(
@@ -56,9 +56,9 @@ data class CameraCaptureSessionData(
         }
 
         override fun onCaptureCompleted(
-          session: CameraCaptureSession?,
-          request: CaptureRequest?,
-          result: TotalCaptureResult?
+          session: CameraCaptureSession,
+          request: CaptureRequest,
+          result: TotalCaptureResult
         ) {
           super.onCaptureCompleted(session, request, result)
           cameraCaptureLiveData.postValue(
@@ -70,7 +70,7 @@ data class CameraCaptureSessionData(
         }
 
         override fun onCaptureSequenceCompleted(
-          session: CameraCaptureSession?,
+          session: CameraCaptureSession,
           sequenceId: Int,
           frameNumber: Long
         ) {
@@ -83,10 +83,7 @@ data class CameraCaptureSessionData(
           )
         }
 
-        override fun onCaptureSequenceAborted(
-          session: CameraCaptureSession?,
-          sequenceId: Int
-        ) {
+        override fun onCaptureSequenceAborted(session: CameraCaptureSession, sequenceId: Int) {
           super.onCaptureSequenceAborted(session, sequenceId)
           cameraCaptureLiveData.postValue(
             CameraCaptureEventsData(
@@ -97,9 +94,9 @@ data class CameraCaptureSessionData(
         }
 
         override fun onCaptureBufferLost(
-          session: CameraCaptureSession?,
-          request: CaptureRequest?,
-          target: Surface?,
+          session: CameraCaptureSession,
+          request: CaptureRequest,
+          target: Surface,
           frameNumber: Long
         ) {
           super.onCaptureBufferLost(session, request, target, frameNumber)
@@ -112,9 +109,9 @@ data class CameraCaptureSessionData(
         }
 
         override fun onCaptureFailed(
-          session: CameraCaptureSession?,
-          request: CaptureRequest?,
-          failure: CaptureFailure?
+          session: CameraCaptureSession,
+          request: CaptureRequest,
+          failure: CaptureFailure
         ) {
           super.onCaptureFailed(session, request, failure)
           cameraCaptureLiveData.postValue(

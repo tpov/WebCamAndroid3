@@ -45,7 +45,7 @@ class MJpegHTTPD(
         val bufferedOutput = BufferedOutputStream(output, OUTPUT_BUFFERED_SIZE)
 
         src.observeElementAt(owner, 1, NonNullObserver { bmpImage ->
-          (handler ?: Handler(Looper.myLooper())).post {
+          (handler ?: Looper.myLooper()?.let { Handler(it) })?.post {
             val body = bmpImage.toJpegByteArray(jpeg_quality)
             kotlin.runCatching {
               bufferedOutput.use { it.write(body) }
@@ -70,7 +70,7 @@ class MJpegHTTPD(
         val observerStatus = ObserverStatus(ObserverStatus.State.ACTIVE)
         src.observeByStatus(owner, observerStatus, NonNullObserver { bmpImage ->
           observerStatus.state = ObserverStatus.State.INACTIVE
-          (handler ?: Handler(Looper.myLooper())).post {
+          (handler ?: Looper.myLooper()?.let { Handler(it) })?.post {
             val jpgByteArray = bmpImage.toJpegByteArray(jpeg_quality)
             kotlin.runCatching {
               bufferedOutput.let {
