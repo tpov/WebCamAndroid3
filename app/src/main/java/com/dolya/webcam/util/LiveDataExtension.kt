@@ -1,4 +1,4 @@
-package jp.yama07.webcam.util
+package com.dolya.webcam.util
 
 import android.os.Handler
 import android.os.Looper

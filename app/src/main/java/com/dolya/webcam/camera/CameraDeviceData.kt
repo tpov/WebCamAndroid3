@@ -1,4 +1,4 @@
-package jp.yama07.webcam.camera
+package com.dolya.webcam.camera
 
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraDevice

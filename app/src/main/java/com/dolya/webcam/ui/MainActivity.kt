@@ -1,4 +1,4 @@
-package jp.yama07.webcam.ui
+package com.dolya.webcam.ui
 
 import android.Manifest
 import android.app.Service
@@ -24,16 +24,17 @@ import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.Observer
 import com.google.android.material.snackbar.Snackbar
-import jp.yama07.webcam.R
-import jp.yama07.webcam.camera.CameraCaptureSessionData
-import jp.yama07.webcam.camera.CameraCaptureSessionData.CameraCaptureSessionStateEvents
-import jp.yama07.webcam.camera.CameraComponent
-import jp.yama07.webcam.camera.CameraDeviceData.DeviceStateEvents
-import jp.yama07.webcam.server.MJpegHTTPD
-import jp.yama07.webcam.server.Yuv420ToBitmapConverter
-import jp.yama07.webcam.util.NonNullObserver
-import jp.yama07.webcam.util.addSourceNonNullObserve
-import jp.yama07.webcam.util.observeElementAt
+import com.dolya.webcam.camera.CameraCaptureSessionData
+import com.dolya.webcam.camera.CameraCaptureSessionData.CameraCaptureSessionStateEvents
+import com.dolya.webcam.camera.CameraComponent
+import com.dolya.webcam.camera.CameraDeviceData.DeviceStateEvents
+import com.dolya.webcam.server.MJpegHTTPD
+import com.dolya.webcam.server.Yuv420ToBitmapConverter
+import com.dolya.webcam.util.NonNullObserver
+import com.dolya.webcam.util.addSourceNonNullObserve
+import com.dolya.webcam.util.observeElementAt
+import com.dolya.webcam.R
+import com.dolya.webcam.Services.Services
 import kotlinx.android.synthetic.main.activity_main.*
 import permissions.dispatcher.NeedsPermission
 import permissions.dispatcher.OnPermissionDenied
@@ -56,8 +57,8 @@ class MainActivity : AppCompatActivity() {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_main)
 
-    var intent = Intent(this, Service::class.java)
-    //startBackgroundThread()
+    var intent = Intent(this, Services::class.java)
+    startBackgroundThread()
     startForegroundService(intent)
 
     cameraComponent = CameraComponent(
@@ -75,12 +76,12 @@ class MainActivity : AppCompatActivity() {
       MJpegHTTPD("192.168.13.77", 8080, this, cameraImage, 20, mjpegHttpdHandler).also { it.start() }
   }
 
-  override fun onDestroy() {
+  /*override fun onDestroy() {
     super.onDestroy()
     converter.destroy()
     server.stop()
     lifecycle.removeObserver(cameraComponent)
-  }
+  }*/
 
   @NeedsPermission(Manifest.permission.CAMERA)
   fun setupCaptureManager() {

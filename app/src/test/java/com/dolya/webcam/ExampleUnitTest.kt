@@ -1,4 +1,4 @@
-package jp.yama07.webcam
+package com.dolya.webcam
 
 import org.junit.Test
 

@@ -1,4 +1,4 @@
-package jp.yama07.webcam
+package com.dolya.webcam
 
 import android.app.Application
 import timber.log.Timber

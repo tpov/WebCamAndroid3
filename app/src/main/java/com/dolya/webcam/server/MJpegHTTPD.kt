@@ -1,4 +1,4 @@
-package jp.yama07.webcam.server
+package com.dolya.webcam.server
 
 import android.graphics.Bitmap
 import android.os.Handler
@@ -6,7 +6,7 @@ import android.os.Looper
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LiveData
 import fi.iki.elonen.NanoHTTPD
-import jp.yama07.webcam.util.*
+import com.dolya.webcam.util.*
 import timber.log.Timber
 import java.io.BufferedOutputStream
 import java.io.IOException

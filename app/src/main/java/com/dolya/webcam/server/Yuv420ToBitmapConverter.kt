@@ -1,4 +1,4 @@
-package jp.yama07.webcam.server
+package com.dolya.webcam.server
 
 import android.content.Context
 import android.graphics.Bitmap

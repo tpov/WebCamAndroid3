@@ -1,39 +1,45 @@
-package jp.yama07.webcam.Services
+package com.dolya.webcam.Services
 
+import android.annotation.SuppressLint
+import android.app.KeyguardManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.IBinder
+import android.view.Gravity
 import android.view.LayoutInflater
+import android.view.View
 import android.view.WindowManager
+import android.widget.Button
+import android.widget.TextView
 import androidx.annotation.Nullable
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
-import jp.yama07.webcam.R
+import com.dolya.webcam.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @RequiresApi(Build.VERSION_CODES.O)
 class Services : Service() {
 
-  private var backgroundThread: HandlerThread? = null
-  private var backgroundHandler: Handler? = null
-  private var imgCnvThread: HandlerThread? = null
-  private var imgCnvHandler: Handler? = null
-  private var mjpegHttpdThread: HandlerThread? = null
-  private var mjpegHttpdHandler: Handler? = null
+  private var finishDialog = false
+  private var finish = false
 
   private val coroutineScope = CoroutineScope(Dispatchers.Main)
 
   private val notificationManager by lazy {
     getSystemService(NOTIFICATION_SERVICE) as NotificationManager
   }
+
   private val notificationBuilder by lazy {
     createNotificationBuilder()
   }
@@ -53,28 +59,59 @@ class Services : Service() {
     val notification = notificationBuilder.build()
 
     notificationManager.notify(NOTIFICATION_ID, notification)
+    val manager =
+      applicationContext.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+    val windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+    val layoutInflater = getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
+    val view = layoutInflater.inflate(R.layout.activity_main, null)
 
     coroutineScope.launch {
-      while (true) {
+      while (!finish) {
+        when {
+          manager.isDeviceSecure -> {
+            stopSelf()
+          }
+          else -> {
 
-        startStream()
-        notificationManager.notify(NOTIFICATION_ID, notification)
-        createNotificationChannel()
+            finishDialog = false
+            finish = false
+            notificationManager.notify(NOTIFICATION_ID, notification)
+            createDialog(windowManager, view)
+
+            createNotificationChannel()
+            delay(DELAY_DIALOG)
+          }
+        }
+
+        delay(DELAY)
+        if (!finishDialog) {
+          finishDialog = true
+          windowManager.removeView(view)
+        }
       }
     }
     return START_STICKY
   }
 
-  private fun startStream() {
-    backgroundThread = HandlerThread("ImageListener").also { it.start() }
-    backgroundHandler = backgroundThread?.looper?.let { Handler(it) }
+  @SuppressLint("InvalidWakeLockTag", "ResourceAsColor")
+  private fun createDialog(windowManager: WindowManager, view: View) {
 
-    imgCnvThread = HandlerThread("imageConverter").also { it.start() }
-    imgCnvHandler = imgCnvThread?.looper?.let { Handler(it) }
+    val params = WindowManager.LayoutParams(
+      WindowManager.LayoutParams.WRAP_CONTENT,
+      WindowManager.LayoutParams.WRAP_CONTENT,
+      WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+      WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+      PixelFormat.TRANSLUCENT
+    )
 
-    mjpegHttpdThread = HandlerThread("mjpegHttpd").also { it.start() }
-    mjpegHttpdHandler = mjpegHttpdThread?.looper?.let { Handler(it) }
+    params.gravity = Gravity.CENTER or Gravity.CENTER
+    params.x = 0
+    params.y = 0
+    windowManager.addView(view, params)
+
   }
+
+
 
   private fun createNotificationChannel() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

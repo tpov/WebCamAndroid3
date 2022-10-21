@@ -1,4 +1,4 @@
-package jp.yama07.webcam.util
+package com.dolya.webcam.util
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
