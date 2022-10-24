@@ -1,9 +1,7 @@
 package com.dolya.webcam.ui
 
 import android.Manifest
-import android.app.Service
 import android.content.Context
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.ImageFormat
 import android.graphics.SurfaceTexture
@@ -14,16 +12,20 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
+import android.util.Log
 import android.util.Size
 import android.view.Surface
 import android.view.TextureView
+import android.view.View
+import android.view.WindowManager
 import androidx.annotation.RequiresApi
+import androidx.appcompat.app.ActionBar
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.Observer
-import com.google.android.material.snackbar.Snackbar
+import com.dolya.webcam.R
 import com.dolya.webcam.camera.CameraCaptureSessionData
 import com.dolya.webcam.camera.CameraCaptureSessionData.CameraCaptureSessionStateEvents
 import com.dolya.webcam.camera.CameraComponent
@@ -33,8 +35,7 @@ import com.dolya.webcam.server.Yuv420ToBitmapConverter
 import com.dolya.webcam.util.NonNullObserver
 import com.dolya.webcam.util.addSourceNonNullObserve
 import com.dolya.webcam.util.observeElementAt
-import com.dolya.webcam.R
-import com.dolya.webcam.Services.Services
+import com.google.android.material.snackbar.Snackbar
 import kotlinx.android.synthetic.main.activity_main.*
 import permissions.dispatcher.NeedsPermission
 import permissions.dispatcher.OnPermissionDenied
@@ -52,17 +53,22 @@ class MainActivity : AppCompatActivity() {
   private var imageSize: Size = Size(1440, 1080)
   private lateinit var converter: Yuv420ToBitmapConverter
 
+  private var backgroundThread: HandlerThread? = null
+  private var backgroundHandler: Handler? = null
+  private var imgCnvThread: HandlerThread? = null
+  private var imgCnvHandler: Handler? = null
+  private var mjpegHttpdThread: HandlerThread? = null
+  private var mjpegHttpdHandler: Handler? = null
+
   @RequiresApi(Build.VERSION_CODES.O)
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    log("onCreate")
     setContentView(R.layout.activity_main)
-
-    var intent = Intent(this, Services::class.java)
     startBackgroundThread()
-    startForegroundService(intent)
 
     cameraComponent = CameraComponent(
-      cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager,
+      cameraManager = getSystemService(CAMERA_SERVICE) as CameraManager,
       cameraId = "0",
       handler = backgroundHandler
     )
@@ -73,18 +79,34 @@ class MainActivity : AppCompatActivity() {
 
     lifecycle.addObserver(cameraComponent)
     server =
-      MJpegHTTPD("192.168.13.77", 8080, this, cameraImage, 20, mjpegHttpdHandler).also { it.start() }
+      MJpegHTTPD(
+        "192.168.13.77",
+        8080,
+        this,
+        cameraImage,
+        20,
+        mjpegHttpdHandler
+      ).also { it.start() }
   }
 
-  /*override fun onDestroy() {
+  private fun log(massage: String) {
+    Timber.tag("MainActivitydawd").d(massage)
+  }
+
+  override fun onDestroy() {
     super.onDestroy()
-    converter.destroy()
-    server.stop()
-    lifecycle.removeObserver(cameraComponent)
-  }*/
+    log("onDestroy")
+  }
+
+  @RequiresApi(Build.VERSION_CODES.N)
+  override fun onUserLeaveHint() {
+    log("onUserLeaveHint")
+      return enterPictureInPictureMode()
+  }
 
   @NeedsPermission(Manifest.permission.CAMERA)
   fun setupCaptureManager() {
+    log("setupCaptureManager")
     captureManager.addSourceNonNullObserve(cameraComponent.cameraDeviceLiveData) { cameraDeviceData ->
       var captureSession: CameraCaptureSession? = null
       var captureSessionLiveData: LiveData<CameraCaptureSessionData>? = null
@@ -108,7 +130,18 @@ class MainActivity : AppCompatActivity() {
     }
   }
 
+  override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean) {
+    log("onPictureInPictureModeChanged")
+    super.onPictureInPictureModeChanged(isInPictureInPictureMode)
+    if (isInPictureInPictureMode) {
+      startBackgroundThread()
+
+      // Restore the full-screen UI.
+    }
+  }
+
   private fun setupSurfaceTexture() {
+    log("setupSurfaceTexture")
     texture_view.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
       override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {}
       override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
@@ -119,6 +152,7 @@ class MainActivity : AppCompatActivity() {
       }
 
       override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+        log("onSurfaceTextureDestroyed")
         captureManager.removeObservers(this@MainActivity)
         return true
       }
@@ -127,6 +161,7 @@ class MainActivity : AppCompatActivity() {
 
   private var isProcessingFrame = false
   private fun setupImageReader(width: Int, height: Int) {
+    log("setupImageReader")
     imageReader = ImageReader
       .newInstance(width, height, ImageFormat.YUV_420_888, 2)
       .apply {
@@ -147,14 +182,8 @@ class MainActivity : AppCompatActivity() {
       }
   }
 
-  private var backgroundThread: HandlerThread? = null
-  private var backgroundHandler: Handler? = null
-  private var imgCnvThread: HandlerThread? = null
-  private var imgCnvHandler: Handler? = null
-  private var mjpegHttpdThread: HandlerThread? = null
-  private var mjpegHttpdHandler: Handler? = null
-
   private fun startBackgroundThread() {
+    log("startBackgroundThread")
     backgroundThread = HandlerThread("ImageListener").also { it.start() }
     backgroundHandler = backgroundThread?.looper?.let { Handler(it) }
 
@@ -196,14 +225,16 @@ class MainActivity : AppCompatActivity() {
 
   @OnPermissionDenied(Manifest.permission.CAMERA)
   fun onCameraDenied() {
-    Snackbar.make(content, "カメラを使用できません。", Snackbar.LENGTH_LONG).show()
+    log("onCameraDenied")
+    Snackbar.make(content, "камера недоступна。", Snackbar.LENGTH_LONG).show()
   }
 
   override fun onRequestPermissionsResult(
     requestCode: Int,
     permissions: Array<out String>,
     grantResults: IntArray
-  ) {
+  ) {    log("onRequestPermissionsResult")
+
     super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     onRequestPermissionsResult(requestCode, grantResults)
   }
