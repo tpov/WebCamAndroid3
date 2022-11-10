@@ -1,6 +1,8 @@
 package com.dolya.webcam.ui
 
 import android.Manifest
+import android.annotation.SuppressLint
+import android.app.PictureInPictureParams
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.ImageFormat
@@ -8,18 +10,18 @@ import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraManager
 import android.media.ImageReader
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
-import android.util.Log
+import android.text.format.Formatter
+import android.util.Rational
 import android.util.Size
 import android.view.Surface
 import android.view.TextureView
-import android.view.View
-import android.view.WindowManager
+import android.widget.TextView
 import androidx.annotation.RequiresApi
-import androidx.appcompat.app.ActionBar
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
@@ -42,6 +44,7 @@ import permissions.dispatcher.OnPermissionDenied
 import permissions.dispatcher.RuntimePermissions
 import timber.log.Timber
 
+
 @RuntimePermissions
 class MainActivity : AppCompatActivity() {
   private lateinit var server: MJpegHTTPD
@@ -52,6 +55,7 @@ class MainActivity : AppCompatActivity() {
   private lateinit var imageReader: ImageReader
   private var imageSize: Size = Size(1440, 1080)
   private lateinit var converter: Yuv420ToBitmapConverter
+  private lateinit var tvIp: TextView
 
   private var backgroundThread: HandlerThread? = null
   private var backgroundHandler: Handler? = null
@@ -65,6 +69,8 @@ class MainActivity : AppCompatActivity() {
     super.onCreate(savedInstanceState)
     log("onCreate")
     setContentView(R.layout.activity_main)
+    checkWifi()
+    initView()
     startBackgroundThread()
 
     cameraComponent = CameraComponent(
@@ -80,14 +86,30 @@ class MainActivity : AppCompatActivity() {
     lifecycle.addObserver(cameraComponent)
     server =
       MJpegHTTPD(
-        "192.168.13.77",
-        8080,
+        getIdAddress(),
+        PORT,
         this,
         cameraImage,
         20,
         mjpegHttpdHandler
       ).also { it.start() }
   }
+
+  private fun checkWifi() {
+    val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+    wifi.isWifiEnabled = false // activate/deactivate wifi
+  }
+
+  @SuppressLint("SetTextI18n")
+  private fun initView() {
+    tvIp = findViewById(R.id.tv_ip)
+    tvIp.setTextColor(getColor(R.color.colorWhite))
+    tvIp.text = "Ip: ${getIdAddress()} \nport: $PORT"
+  }
+
+  private fun getIdAddress(): String? =
+    Formatter.formatIpAddress((applicationContext.getSystemService(WIFI_SERVICE) as WifiManager).connectionInfo.ipAddress)
+
 
   private fun log(massage: String) {
     Timber.tag("MainActivitydawd").d(massage)
@@ -101,7 +123,7 @@ class MainActivity : AppCompatActivity() {
   @RequiresApi(Build.VERSION_CODES.N)
   override fun onUserLeaveHint() {
     log("onUserLeaveHint")
-      return enterPictureInPictureMode()
+    return enterPictureInPictureMode()
   }
 
   @NeedsPermission(Manifest.permission.CAMERA)
@@ -130,12 +152,19 @@ class MainActivity : AppCompatActivity() {
     }
   }
 
+  @RequiresApi(Build.VERSION_CODES.O)
   override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean) {
     log("onPictureInPictureModeChanged")
     super.onPictureInPictureModeChanged(isInPictureInPictureMode)
     if (isInPictureInPictureMode) {
-      startBackgroundThread()
+      stopBackgroundThread()
+      server.stop()
+      recreate()
 
+      val pictureInPictureParamsBuilder = PictureInPictureParams.Builder()
+      val aspectRatio = Rational(imageSize.width, imageSize.height)
+      pictureInPictureParamsBuilder.setAspectRatio(aspectRatio)
+      enterPictureInPictureMode(pictureInPictureParamsBuilder.build())
       // Restore the full-screen UI.
     }
   }
@@ -233,9 +262,14 @@ class MainActivity : AppCompatActivity() {
     requestCode: Int,
     permissions: Array<out String>,
     grantResults: IntArray
-  ) {    log("onRequestPermissionsResult")
+  ) {
+    log("onRequestPermissionsResult")
 
     super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     onRequestPermissionsResult(requestCode, grantResults)
+  }
+
+  companion object {
+    const val PORT = 8080
   }
 }
