@@ -37,4 +37,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
     implementation 'org.permissionsdispatcher:permissionsdispatcher:4.3.0'
     kapt 'org.permissionsdispatcher:permissionsdispatcher-processor:4.3.0'
+
+    implementation 'com.github.jiangdongguo:AndroidUSBCamera:2.3.4'
 }

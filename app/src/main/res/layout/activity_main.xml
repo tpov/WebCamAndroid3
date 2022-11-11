@@ -8,10 +8,16 @@
         android:layout_height="match_parent"
         tools:context=".ui.MainActivity">
 
-    <TextureView
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <com.serenegiant.usb.widget.UVCCameraTextureView
             android:id="@+id/texture_view"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"/>
+    </FrameLayout>
 
     <TextView
         android:id="@+id/tv_ip"

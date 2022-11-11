@@ -9,6 +9,7 @@ import android.graphics.ImageFormat
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraManager
+import android.hardware.usb.UsbDevice
 import android.media.ImageReader
 import android.net.wifi.WifiManager
 import android.os.Build
@@ -22,6 +23,7 @@ import android.view.Surface
 import android.view.TextureView
 import android.widget.TextView
 import androidx.annotation.RequiresApi
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
@@ -38,6 +40,8 @@ import com.dolya.webcam.util.NonNullObserver
 import com.dolya.webcam.util.addSourceNonNullObserve
 import com.dolya.webcam.util.observeElementAt
 import com.google.android.material.snackbar.Snackbar
+import com.jiangdg.usbcamera.UVCCameraHelper
+import com.serenegiant.usb.widget.CameraViewInterface
 import kotlinx.android.synthetic.main.activity_main.*
 import permissions.dispatcher.NeedsPermission
 import permissions.dispatcher.OnPermissionDenied
@@ -64,6 +68,13 @@ class MainActivity : AppCompatActivity() {
   private var mjpegHttpdThread: HandlerThread? = null
   private var mjpegHttpdHandler: Handler? = null
 
+  private lateinit var mCameraHelper: UVCCameraHelper
+  private lateinit var mUVCCameraView: CameraViewInterface
+  private lateinit var mDialog: AlertDialog
+
+  private var isRequest = false
+  private var isPreview = false
+
   @RequiresApi(Build.VERSION_CODES.O)
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -72,7 +83,7 @@ class MainActivity : AppCompatActivity() {
     checkWifi()
     initView()
     startBackgroundThread()
-
+    initUsbCam()
     cameraComponent = CameraComponent(
       cameraManager = getSystemService(CAMERA_SERVICE) as CameraManager,
       cameraId = "0",
@@ -95,6 +106,77 @@ class MainActivity : AppCompatActivity() {
       ).also { it.start() }
   }
 
+  private fun initUsbCam() {
+
+    var mCallback = object : CameraViewInterface.Callback {
+
+      override fun onSurfaceCreated(view: CameraViewInterface?, surface: Surface?) {
+        if (!isPreview && mCameraHelper.isCameraOpened) {
+          mCameraHelper.startPreview(mUVCCameraView);
+          isPreview = true;
+        }
+      }
+
+      override fun onSurfaceChanged(
+        view: CameraViewInterface?,
+        surface: Surface?,
+        width: Int,
+        height: Int
+      ) {
+
+      }
+
+      override fun onSurfaceDestroy(view: CameraViewInterface?, surface: Surface?) {
+        if (isPreview && mCameraHelper.isCameraOpened) {
+          mCameraHelper.stopPreview();
+          isPreview = false;
+        }
+      }
+    }
+
+    var listener = object : UVCCameraHelper.OnMyDevConnectListener {
+
+      override fun onAttachDev(device: UsbDevice?) {
+        if (!isRequest) {
+          isRequest = true;
+          if (mCameraHelper != null) {
+            mCameraHelper.requestPermission(0);
+          }
+        }
+      }
+
+      override fun onDettachDev(device: UsbDevice?) {
+        if (isRequest) {
+          isRequest = false;
+          mCameraHelper.closeCamera();
+        }
+      }
+
+      override fun onConnectDev(device: UsbDevice?, isConnected: Boolean) {
+
+      }
+
+      override fun onDisConnectDev(device: UsbDevice?) {
+
+      }
+    };
+
+    mUVCCameraView = texture_view as CameraViewInterface
+    mUVCCameraView.setCallback(mCallback)
+    mCameraHelper = UVCCameraHelper.getInstance()
+// set default preview size
+    // set default preview size
+    mCameraHelper.setDefaultPreviewSize(1280, 720)
+// set default frame format，defalut is UVCCameraHelper.Frame_FORMAT_MPEG
+// if using mpeg can not record mp4,please try yuv
+// mCameraHelper.setDefaultFrameFormat(UVCCameraHelper.FRAME_FORMAT_YUYV);
+// set default frame format，defalut is UVCCameraHelper.Frame_FORMAT_MPEG
+// if using mpeg can not record mp4,please try yuv
+// mCameraHelper.setDefaultFrameFormat(UVCCameraHelper.FRAME_FORMAT_YUYV);
+    mCameraHelper.initUSBMonitor(this, mUVCCameraView, listener)
+
+  }
+
   private fun checkWifi() {
     val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
     wifi.isWifiEnabled = false // activate/deactivate wifi
@@ -104,7 +186,7 @@ class MainActivity : AppCompatActivity() {
   private fun initView() {
     tvIp = findViewById(R.id.tv_ip)
     tvIp.setTextColor(getColor(R.color.colorWhite))
-    tvIp.text = "Ip: ${getIdAddress()} \nport: $PORT"
+    tvIp.text = "Ip: ${getIdAddress()}\nport: $PORT"
   }
 
   private fun getIdAddress(): String? =
@@ -127,7 +209,7 @@ class MainActivity : AppCompatActivity() {
   }
 
   @NeedsPermission(Manifest.permission.CAMERA)
-  fun setupCaptureManager() {
+  fun setupCaptureManager() {}/*{
     log("setupCaptureManager")
     captureManager.addSourceNonNullObserve(cameraComponent.cameraDeviceLiveData) { cameraDeviceData ->
       var captureSession: CameraCaptureSession? = null
@@ -150,7 +232,7 @@ class MainActivity : AppCompatActivity() {
         captureSessionLiveData?.also { captureManager.removeSource(it) }
       }
     }
-  }
+  }*/
 
   @RequiresApi(Build.VERSION_CODES.O)
   override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean) {
